@@ -1,0 +1,2 @@
+ceph_storage_bluestore_volume_group: block-db
+ceph_storage_devices: "{{ devices }}"

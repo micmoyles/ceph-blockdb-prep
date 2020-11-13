@@ -1,0 +1,52 @@
+# 1. make sure the volume groups provided in lvm_volumes dict is unique and matches ceph_storage_bluestore_volume_group
+# lvm_volumes:
+#  - data: /dev/sdc
+#    db: block-db-sdc
+#    db_vg: block-db
+#  - data: /dev/sdd
+#    db: block-db-sdd
+#    db_vg: block-db-other
+#  this will be invalid because we deploy a single volume group to the bluestore device
+#
+# 2. verify that for a clean install there are no existing volume groups or physical volumes
+#    configured on the devices provided
+#
+# 3. in lvm_volumes dict, the lv provided must be "block-db-" + basename(device)
+#
+# 4. The number of devices matches the number of element in lvm_volumes
+#
+# 5. Every element of ceph_storage_devices must be contained in lvm_volumes
+
+- name: Assert that number of devices match the number of elements in lvm_volumes
+  assert:
+     that: lvm_volumes | length == ceph_storage_devices | length
+     fail_msg: Number of devices provided does not match lvm_volume config
+
+- name:  Check that all devices in ceph_storage_devices are in lvm_volumes
+  assert:
+    that: "{{ item in lvm_volumes | map(attribute='data') | list }}"
+    fail_msg: item does not have an entry in lvm_volumes
+  loop: "{{ ceph_storage_devices | list }}"
+
+- name: Assert that every data device in lvm_volumes is in ceph_storage_devices
+  assert:
+    that: "{{ lvm_volumes | map(attribute='data') | list | difference(ceph_storage_devices) | length == 0 }}"
+    fail_msg: data devices in lvm_volumes contains an entry that is not present in ceph_storage_devices
+
+- name: Assert that every device in ceph_storage_devices is in lvm_volumes data device values
+  assert:
+    that: "{{ ceph_storage_devices | difference( lvm_volumes | map(attribute='data') | list ) | length == 0 }}"
+    fail_msg: ceph_storage_devices contains an entry that is not present in data devices in lvm_volumes
+
+- name: set expected volume group 
+  set_fact:
+    expected_vg: "{{ lvm_volumes[0]['db_vg'] }}"
+  when: expected_vg is not defined
+
+- name: verify all db_vg are the same within lvm_volumes
+  assert:
+    that:
+      - item['db_vg'] == expected_vg  
+    fail_msg: "All volume groups in lvm_volumes must be identical - host {{ inventory_hostname }}"
+    success_msg: All volume groups are equal
+  loop: "{{ lvm_volumes }}"

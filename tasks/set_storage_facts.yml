@@ -1,0 +1,22 @@
+
+- set_fact:
+     block_db_lv_size_gb: []
+     vg: "{{ ceph_storage_bluestore_volume_group }}"
+
+- name: Determine sector size and number of sectors for device
+  set_fact:
+    sectorsize: "{{ ansible_facts['devices'][ bluestore_wal_device | basename ]['sectorsize'] }}"
+    sectors: "{{ ansible_facts['devices'][ bluestore_wal_device | basename ]['sectors']  }}"
+
+- name: Determine device_size
+  set_fact:
+    device_size: "{{ sectorsize | int * sectors | int }}"
+
+- name: Determine size of each LV
+  set_fact:
+    lv_size: "{{ ( device_size | int * 0.90 ) / ( ceph_storage_max_devices ) }}"
+
+- name: Determine size of each LV in mb
+  set_fact:
+    lv_size_mb: "{{ ( lv_size | float / 1000000.0 ) | round(0,'floor') | int  }}"
+

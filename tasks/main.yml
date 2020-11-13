@@ -1,0 +1,21 @@
+# 1. input of WAL or block.db device
+# 2. Create a physical volume
+# 3. Create a volume group
+# 4. Create logival
+- name: set all required facts
+  include_tasks: set_storage_facts.yml
+
+- name: validate configuration
+  include_tasks: validate.yml
+
+- name: Create physical volume on bluestore_wal_device
+  command: "/usr/sbin/pvcreate {{ bluestore_wal_device }}"
+
+- name: Create block_db volume group
+  command: "/usr/sbin/vgcreate {{ vg }} {{ bluestore_wal_device }}"
+
+- name: Create logical volume for each device
+  command: "lvcreate -L {{ lv_size_mb }}M -n {{ vg }}-{{ device | basename }} {{ vg }}"
+  loop: "{{ ceph_storage_devices }}"
+  loop_control:
+    loop_var: device
